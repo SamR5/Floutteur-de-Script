@@ -1,0 +1,74 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+import random as r
+import sys
+if sys.version_info.major==3: import tkinter as tk
+else: import Tkinter as tk
+M,N=10,10;colors=["gray","red","green","blue"];cs=40;nei=[(-1,0),(1,0),(0,-1),(0,1)]
+class SameGame():
+    def __init__(q,D,E=M,H=N):
+        q.master=D;q.m,q.n=E,H;q.grid=[[r.randint(1,len(colors)-1) for j in range(q.n)]
+                     for i in range(q.m)]
+        q.wa();q.ua()
+    def ua(I):
+        I.grid=[[r.randint(1,len(colors)-1) for j in range(I.n)]
+                     for i in range(I.m)]
+        I.currM,I.currN=I.m,I.n;I.selected=[];I.selectedColor=0;I.score=0;I.ya();I.xa()
+    def wa(J):
+        J.canvas=tk.Canvas(J.master,width=J.n*cs,height=J.m*cs);J.canvas.pack()
+        for i in range(J.m):
+            for j in range(J.n): J.canvas.create_rectangle(j*cs,i*cs,(j+1)*cs,(i+1)*cs,fill=colors[J.grid[i][j]],width=1)
+        for i in range(J.m):
+            for j in range(J.n): J.canvas.create_rectangle((j+0.33)*cs,(i+0.33)*cs,(j+0.66)*cs,(i+0.66)*cs,fill="black")
+        J.canvas.bind("<Button-1>",J.Aa);J.canvas.bind_all("<KeyPress>",J.Ba);J.statusStr=tk.StringVar();J.scoreLab=tk.Label(J.master,textvariable=J.statusStr,anchor="w",relief="sunken");J.scoreLab.pack(side="bottom",fill='x')
+    def xa(O):
+        if len(O.selected):
+            nxtScore=max(0,len(O.selected)-2)**2;O.statusStr.set("Score: {}  Selected: {} ({})" .format(O.score,len(O.selected),nxtScore))
+        else: O.statusStr.set("Score: {}".format(O.score))
+    def ya(Q):
+        for i in range(Q.m):
+            for j in range(Q.n):
+                Q.canvas.itemconfig(i*Q.n+j+1,fill=colors[Q.grid[i][j]])
+                if (i,j) in Q.selected: Q.canvas.itemconfig(Q.m*Q.n+i*Q.n+j+1,state="normal")
+                else: Q.canvas.itemconfig(Q.m*Q.n+i*Q.n+j+1,state="hidden")
+    def Aa(W,X=None):
+        row,col=X.y//cs,X.x//cs
+        if (row,col) in W.selected and len(W.selected)>1:
+            for i,j in W.selected: W.grid[i][j]=0
+            W.score+=max(0,len(W.selected)-2)**2
+            W.selected.clear()
+        elif W.grid[row][col]!=0:
+            W.selectedColor=W.grid[row][col];W.selected.clear();W.selected.append((row,col));W.Da(row,col)
+            if len(W.selected)==1: W.selected.clear()
+        W.Ea();W.Ha();W.ya();W.xa()
+    def Ba(Y,aa=None):
+        if aa.keysym in 'nN': Y.ua()
+    def Da(fa,ja,ka):
+        for i,j in nei:
+            R,C=ja+i,ka+j
+            if 0<=R<fa.m and 0<=C<fa.n and (R,C) not in fa.selected and fa.grid[R][C]==fa.selectedColor:
+                fa.selected.append((R,C));fa.Da(R,C)
+    def Ea(oa):
+        for col in range(oa.currN):
+            allZero=True
+            for i in range(oa.currM):
+                if oa.grid[i][col]!=0: allZero=False
+                if not allZero: break
+            if allZero:
+                for i in range(oa.currM):
+                    del oa.grid[i][col]
+                    oa.grid[i].append(0)
+                oa.currN-=1;oa.selected.clear()
+                return oa.Ea()
+    def Ha(qa):
+        change=False
+        for row in range(qa.m-1,0,-1):
+            for j in range(qa.currN):
+                if qa.grid[row][j]==0 and qa.grid[row-1][j]!=0:
+                    qa.grid[row][j]=qa.grid[row-1][j];qa.grid[row-1][j]=0;change=True
+        if change:
+            qa.Ha();qa.selected.clear()
+def Ia():
+    pass
+if __name__=='__main__':
+    root=tk.Tk();root.title("Same Game");root.resizable(False,False);myApp=SameGame(root);root.mainloop()

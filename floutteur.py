@@ -34,6 +34,12 @@ def rand_name_gen2(script):
                 except IndexError:
                     rnd.append(0)
 
+def get_indent(line):
+    i = 0
+    while line[i] == ' ':
+        i += 1
+    return i
+
 def get_script(path):
     with open(path, 'r') as file:
         script = file.read()
@@ -44,8 +50,7 @@ def write_script(path, script):
         file.write(script)
 
 def purge_spaces(script):
-    """Spaces before newline
-    spaces between '=,)'"""
+    """Spaces before newline and spaces between '=,)' """
     s = re.sub(r' +\n', r'\n', script)
     s = re.sub(r'( )*(,|=|!=|==|<|>|<=|>=|-=|\+=|\*=|\\=|\\\\=|%=)( )*', r'\2', s)
     return re.sub('\n{2,}', '\n', s)
@@ -57,6 +62,34 @@ def delete_comments(script):
     """Delete comments except #!/usr/bin/python and # -*- coding: utf-8 -*-"""
     return re.sub(r' *#(?!!/usr/bin/python| -\*- coding: utf-8 -\*-).*(?=\n)', '', script)
 
+def join_similar_line(script):
+    """
+    module.function1()      =>      module.function1();module.function2()
+    module.function2()
+    a=1                     =>      a=1;b=2
+    b=2
+    """
+    indents = []
+    splitedLines = script.split('\n')
+    newScript = splitedLines[0]
+    lastLine = splitedLines[0]
+    for i in range(1, len(splitedLines)):
+        line = splitedLines[i]
+        # variable assignement or function call
+        # if useless line, add it
+        if not re.match(r'^( *)\w+([\.,\-\w\[\]])*=', line) and\
+           not re.match(r'^( *)\w+(\.\w*)*\(.*\)', line):
+            newScript += '\n' + line
+        # if good line and previous on same indent, join them
+        elif (re.match(r'^( *)\w+([\.,\-\w\[\]])*=', lastLine) or\
+              re.match(r'^( *)\w+(\.\w*)*\(.*\)', lastLine)) and\
+              get_indent(line) == get_indent(lastLine):
+            newScript += ';' + line.lstrip(' ')
+        else:
+            newScript += '\n' + line
+        lastLine = line
+    return newScript
+
 def get_global_var(script):
     gVars = []
     for mtch in re.finditer(r'(?<=\n)(\w+) ?= ?(.*)\n', script):
@@ -64,9 +97,9 @@ def get_global_var(script):
     return gVars
 
 def replace_global_var(script):
-    for variable, value in get_global_var(script):
-        # we don't want to change the (re)assignated ('=') version
-        script = re.sub(r'(?<![\s\.=])'+variable+r'\b', value, script)
+    #for variable, value in get_global_var(script):
+    #    # we don't want to change the (re)assignated ('=') version
+    #    script = re.sub(r'\b'+variable+r'\b(?![\.=])', value, script)
     return script
 
 def one_line(script):
@@ -95,7 +128,6 @@ def one_line(script):
     # one line else
     script = re.sub(r'( *)(else:)\n( )*(.*\n)(?=\1[^ ])', r'\1\2 \4', script)
 
-    
     return script
 
 def get_functions(script):
@@ -159,18 +191,26 @@ def get_classes(script):
     return re.findall(r'\bclass (\w+)\(.*\):\n', script)
 
 def main(script):
+    """
+    Keep order
+    if join_function_call before one_line:
+        if x:
+            fcall()    =X>   if x: fcall(); fcall2()
+        fcall2()
+    """
     global randGen
     randGen = rand_name_gen2(script)
     script = purge_spaces(script)
     script = delete_comments(script)
-    script = replace_global_var(script)
+    #script = replace_global_var(script) ne pas utiliser !!!
     script = purge_spaces(script)
     script = replace_functions(script)
     script = one_line(script)
+    script = join_similar_line(script)
     return script
 
 if __name__ == '__main__':
     path = "modele.py"
     script = get_script(path)
-    main(script)
+    script = main(script)
     write_script(path, purge_spaces(script))
